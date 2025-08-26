@@ -1,0 +1,130 @@
+/* Base */
+body {
+  background-color: #0d1117;
+  color: #fefefe;
+  font-family: monospace, monospace;
+  margin: 20px auto;
+  max-width: 800px;
+  padding: 0 10px;
+}
+
+/* Dropzone */
+#dropzone {
+  border: 2px dashed #888;
+  border-radius: 10px;
+  color: #fefefe;
+  cursor: pointer;
+  margin-bottom: 20px;
+  padding: 30px;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+#dropzone:hover {
+  color: #0fff50;
+}
+
+/* File list */
+#file-list {
+  list-style: none;
+  margin-top: 20px;
+  padding-left: 0;
+}
+
+#file-list li {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.sinkholeModeInfo {
+  color: #888;
+  text-align: center;
+}
+
+/* Links */
+.delete-link {
+  color: #fefefe;
+  font-size: 14px;
+  margin-left: 8px;
+  text-decoration: none;
+}
+
+.delete-link:hover {
+  color: #0fff50;
+}
+
+.download-link {
+  color: #fefefe;
+  text-decoration: none;
+  word-break: break-word;
+}
+
+.download-link:hover {
+  color: #0fff50;
+}
+
+.logo {
+  color: #0fff50;
+  text-decoration: none;
+  text-align: center;
+}
+
+/* Progress */
+#currentFileName {
+  font-weight: bold;
+  margin-bottom: 5px;
+  word-break: break-word;
+}
+
+#overallProgress {
+  accent-color: #0fff50;
+  height: 20px;
+  width: 100%;
+}
+
+#overallProgress::-moz-progress-bar {
+  background-color: #0fff50;
+}
+
+#overallProgress::-webkit-progress-bar {
+  background-color: #333;
+  border-radius: 5px;
+}
+
+#overallProgress::-webkit-progress-value {
+  background-color: #0fff50;
+  border-radius: 5px;
+}
+
+#overallProgressContainer {
+  margin-bottom: 20px;
+}
+
+.status {
+  color: #fefefe;
+  font-size: 14px;
+  margin-top: 4px;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  body {
+    padding: 0 15px;
+  }
+
+  #dropzone {
+    font-size: 14px;
+    padding: 20px;
+  }
+
+  .delete-link {
+    font-size: 12px;
+    margin-left: 5px;
+  }
+
+  .download-link {
+    font-size: 14px;
+  }
+}
