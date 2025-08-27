@@ -253,9 +253,9 @@ func httpPostUpload(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 			http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
 			return
 		}
-		defer uploadFile.Close()
 
 		bytesWritten, err := io.Copy(uploadFile, part)
+		uploadFile.Close()
 		if err != nil {
 			_ = os.Remove(pathToFileInUploadFolder)
 			http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
