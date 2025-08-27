@@ -30,33 +30,9 @@
   }
 
   async function initApp() {
-    UI.currentFileName = document.getElementById("currentFileName");
-    UI.dropzone = document.getElementById("dropzone");
-    UI.fileInput = document.getElementById("fileInput");
-    UI.fileList = document.getElementById("file-list");
-    UI.overallProgress = document.getElementById("overallProgress");
-    UI.overallStatus = document.getElementById("overallStatus");
-    UI.overallProgressContainer = document.getElementById(
-      "overallProgressContainer"
-    );
-    UI.sinkholeModeInfo = document.getElementById("sinkholeModeInfo");
-
-    UI.dropzone.addEventListener("click", () => UI.fileInput.click());
-    UI.fileInput.addEventListener("change", () => {
-      if (UI.fileInput.files.length > 0) uploadFiles(UI.fileInput.files);
-    });
-    UI.dropzone.addEventListener("dragover", (e) => {
-      e.preventDefault();
-      UI.dropzone.style.borderColor = "#0fff50";
-    });
-    UI.dropzone.addEventListener("dragleave", () => {
-      UI.dropzone.style.borderColor = "#888";
-    });
-    UI.dropzone.addEventListener("drop", (e) => {
-      e.preventDefault();
-      UI.dropzone.style.borderColor = "#888";
-      if (e.dataTransfer.files.length > 0) uploadFiles(e.dataTransfer.files);
-    });
+    addUIElementsToBody();
+    getUIElements();
+    addEventListeners();
 
     await loadAppConfig();
     appLoop();
@@ -139,6 +115,93 @@
     } catch (err) {
       console.error("fetchFiles failed:", err);
     }
+  }
+
+  function addEventListeners() {
+    UI.dropzone.addEventListener("click", () => UI.fileInput.click());
+    UI.fileInput.addEventListener("change", () => {
+      if (UI.fileInput.files.length > 0) uploadFiles(UI.fileInput.files);
+    });
+    UI.dropzone.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      UI.dropzone.style.borderColor = "#0fff50";
+    });
+    UI.dropzone.addEventListener("dragleave", () => {
+      UI.dropzone.style.borderColor = "#888";
+    });
+    UI.dropzone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      UI.dropzone.style.borderColor = "#888";
+      if (e.dataTransfer.files.length > 0) uploadFiles(e.dataTransfer.files);
+    });
+  }
+
+  function addUIElementsToBody() {
+    document.body.innerHTML = "";
+
+    const aLogo = document.createElement("a");
+    aLogo.href = "/";
+    aLogo.className = "logo";
+    const h1Logo = document.createElement("h1");
+    h1Logo.textContent = "Ablage";
+    aLogo.appendChild(h1Logo);
+    document.body.appendChild(aLogo);
+
+    const divDropzone = document.createElement("div");
+    divDropzone.id = "dropzone";
+    divDropzone.innerHTML = "Drag & drop files here or click to select";
+    divDropzone.style.display = "none";
+    document.body.appendChild(divDropzone);
+
+    const fileInput = document.createElement("input");
+    fileInput.type = "file";
+    fileInput.id = "fileInput";
+    fileInput.name = "uploadfile";
+    fileInput.multiple = true;
+    fileInput.style.display = "none";
+    document.body.appendChild(fileInput);
+
+    const divOverallProgressContainer = document.createElement("div");
+    divOverallProgressContainer.id = "overallProgressContainer";
+    divOverallProgressContainer.style.display = "none";
+    const divCurrentFileName = document.createElement("div");
+    divCurrentFileName.id = "currentFileName";
+    const progressOverall = document.createElement("progress");
+    progressOverall.id = "overallProgress";
+    progressOverall.value = 0;
+    progressOverall.max = 100;
+    const divOverallStatus = document.createElement("div");
+    divOverallStatus.id = "overallStatus";
+    divOverallStatus.className = "status";
+    divOverallProgressContainer.appendChild(divCurrentFileName);
+    divOverallProgressContainer.appendChild(progressOverall);
+    divOverallProgressContainer.appendChild(divOverallStatus);
+    document.body.appendChild(divOverallProgressContainer);
+
+    const ulFileList = document.createElement("ul");
+    ulFileList.id = "file-list";
+    document.body.appendChild(ulFileList);
+
+    const divSinkholeModeInfo = document.createElement("div");
+    divSinkholeModeInfo.id = "sinkholeModeInfo";
+    divSinkholeModeInfo.className = "sinkholeModeInfo";
+    divSinkholeModeInfo.style.display = "none";
+    divSinkholeModeInfo.textContent =
+      "- Sinkhole mode enabled, no files will get listed -";
+    document.body.appendChild(divSinkholeModeInfo);
+  }
+
+  function getUIElements() {
+    UI.currentFileName = document.getElementById("currentFileName");
+    UI.dropzone = document.getElementById("dropzone");
+    UI.fileInput = document.getElementById("fileInput");
+    UI.fileList = document.getElementById("file-list");
+    UI.overallProgress = document.getElementById("overallProgress");
+    UI.overallStatus = document.getElementById("overallStatus");
+    UI.overallProgressContainer = document.getElementById(
+      "overallProgressContainer"
+    );
+    UI.sinkholeModeInfo = document.getElementById("sinkholeModeInfo");
   }
 
   function humanReadableSize(bytes) {
