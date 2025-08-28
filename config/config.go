@@ -33,36 +33,3 @@ func Init() {
 		os.Exit(1)
 	}
 }
-
-func PrintStartupBanner() {
-	fmt.Println("****************************************")
-	fmt.Println("*                Ablage                *")
-	fmt.Println("****************************************")
-	fmt.Printf("Version        : %s\n", VersionString)
-	fmt.Printf("Basic Auth mode: %v\n", GetBasicAuthMode())
-	fmt.Printf("HTTP mode      : %v\n", GetHttpMode())
-	fmt.Printf("Readonly mode  : %v\n", GetReadonlyMode())
-	fmt.Printf("Sinkhole mode  : %v\n", GetSinkholeMode())
-	fmt.Printf("Path           : %s\n", GetPathDataFolder())
-
-	if GetBasicAuthMode() {
-		fmt.Printf("Username       : %s\n", GetBasicAuthUsername())
-		fmt.Printf("Password       : %s\n", GetBasicAuthPassword())
-	}
-
-	if GetHttpMode() {
-		fmt.Printf("Listening on   : http://0.0.0.0:%d\n", GetPortToListenOn())
-	} else {
-		if pathTLSCertFile == "" || pathTLSKeyFile == "" {
-			fmt.Printf("TLS cert       : self-signed\n")
-			fmt.Printf("TLS key        : self-signed\n")
-		} else {
-			fmt.Printf("TLS cert       : %s\n", pathTLSCertFile)
-			fmt.Printf("TLS key        : %s\n", pathTLSKeyFile)
-		}
-
-		fmt.Printf("Listening on   : https://0.0.0.0:%d\n", GetPortToListenOn())
-	}
-
-	fmt.Println("")
-}
