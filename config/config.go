@@ -7,7 +7,7 @@ import (
 
 const DefaultBasicAuthUsername string = "ablage"
 const DefaultNameDataFolder string = "data"
-const DefaultNameUploadFolder string = "upload"
+const DefaultNameUploadFolder string = ".upload"
 const DefaultPortToListenOn int = 13692
 const LengthOfRandomBasicAuthPassword int = 16
 const VersionString string = "1.0"
