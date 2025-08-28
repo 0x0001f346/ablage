@@ -51,25 +51,14 @@ func centerTextWithWhitespaces(text string, maxWidth int) string {
 }
 
 func getBanner() string {
-	version := centerTextWithWhitespaces("v"+VersionString, 38)
-
-	// if runtime.GOOS != "windows" {
-	// 	return strings.Join(
-	// 		[]string{
-	// 			"+--------------------------------------+",
-	// 			"│                Ablage                │",
-	// 			fmt.Sprintf("│%s│", version),
-	// 			"+--------------------------------------+",
-	// 		},
-	// 		"\n",
-	// 	)
-	// }
-
 	return strings.Join(
 		[]string{
 			"┌──────────────────────────────────────┐",
 			"│                Ablage                │",
-			fmt.Sprintf("│%s│", version),
+			fmt.Sprintf(
+				"│%s│",
+				centerTextWithWhitespaces("v"+VersionString, 38),
+			),
 			"└──────────────────────────────────────┘",
 		},
 		"\n",
