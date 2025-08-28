@@ -2,7 +2,9 @@
   "use strict";
 
   let AppConfig = null;
-  let UI = {};
+  let ErrorTimeout = null;
+  let Files = {};
+  const UI = {};
 
   async function appLoop() {
     if (AppConfig === null) {
@@ -65,9 +67,13 @@
       if (!res.ok) throw new Error("HTTP " + res.status);
       const files = await res.json();
 
+      Files = {};
+
       if (!UI.fileList) return;
       UI.fileList.innerHTML = "";
       files.forEach((file) => {
+        Files[file.Name] = true;
+
         const size = humanReadableSize(file.Size);
 
         const li = document.createElement("li");
@@ -100,7 +106,11 @@
                 ),
                 { method: "GET" }
               );
-              if (!r.ok) throw new Error("Delete failed " + r.status);
+              if (r.ok) {
+                showSuccess("File deleted");
+              } else {
+                showError("Delete failed");
+              }
               fetchFiles();
             } catch (err) {
               console.error(err);
@@ -148,6 +158,7 @@
     document.body.appendChild(aLogo);
 
     const divDropzone = document.createElement("div");
+    divDropzone.className = "dropzone";
     divDropzone.id = "dropzone";
     divDropzone.innerHTML = "Drag & drop files here or click to select";
     divDropzone.style.display = "none";
@@ -222,9 +233,90 @@
     return (bytesPerSec / (1024 * 1024)).toFixed(2) + " MB/s";
   }
 
+  function sanitizeFilename(dirtyFilename) {
+    if (!dirtyFilename || dirtyFilename.trim() === "") {
+      return "upload.bin";
+    }
+
+    const filenameWithoutPath = dirtyFilename.split(/[\\/]/).pop();
+
+    const lastDot = filenameWithoutPath.lastIndexOf(".");
+    const extension = lastDot !== -1 ? filenameWithoutPath.slice(lastDot) : "";
+    let filenameWithoutPathAndExtension =
+      lastDot !== -1
+        ? filenameWithoutPath.slice(0, lastDot)
+        : filenameWithoutPath;
+
+    let cleanedFilename = filenameWithoutPathAndExtension
+      .replace(/ /g, "_")
+      .replace(/Ä/g, "Ae")
+      .replace(/ä/g, "ae")
+      .replace(/Ö/g, "Oe")
+      .replace(/ö/g, "oe")
+      .replace(/Ü/g, "Ue")
+      .replace(/ü/g, "ue")
+      .replace(/ß/g, "ss");
+
+    cleanedFilename = cleanedFilename.replace(/[^a-zA-Z0-9._-]+/g, "_");
+
+    while (cleanedFilename.includes("__")) {
+      cleanedFilename = cleanedFilename.replace(/__+/g, "_");
+    }
+
+    cleanedFilename = cleanedFilename.replace(/^_+|_+$/g, "");
+
+    const maxLenFilename = 128;
+    if (cleanedFilename.length > maxLenFilename) {
+      cleanedFilename = cleanedFilename.slice(0, maxLenFilename);
+    }
+
+    return cleanedFilename + extension;
+  }
+
+  function showError(msg) {
+    const original = "Drag & drop files here or click to select";
+    UI.dropzone.innerHTML = msg;
+    UI.dropzone.classList.add("error");
+
+    if (ErrorTimeout) clearTimeout(ErrorTimeout);
+
+    ErrorTimeout = setTimeout(() => {
+      UI.dropzone.innerHTML = original;
+      UI.dropzone.classList.remove("error");
+      ErrorTimeout = null;
+    }, 2000);
+  }
+
+  function showSuccess(msg) {
+    const original = "Drag & drop files here or click to select";
+    UI.dropzone.innerHTML = msg;
+    UI.dropzone.classList.add("success");
+
+    if (ErrorTimeout) clearTimeout(ErrorTimeout);
+
+    ErrorTimeout = setTimeout(() => {
+      UI.dropzone.innerHTML = original;
+      UI.dropzone.classList.remove("success");
+      ErrorTimeout = null;
+    }, 1500);
+  }
+
   function uploadFiles(fileListLike) {
     const files = Array.from(fileListLike);
     if (files.length === 0) return;
+
+    for (const f of files) {
+      if (sanitizeFilename(f.name) == ".upload") {
+        showError("Invalid filename: .upload");
+        return;
+      }
+      if (sanitizeFilename(f.name) in Files) {
+        showError("File already exists: " + f.name);
+        return;
+      }
+    }
+
+    let noErrorOccurred = true;
 
     UI.overallProgressContainer.style.display = "block";
     UI.overallProgress.value = 0;
@@ -243,6 +335,9 @@
         UI.overallStatus.textContent = "";
         UI.currentFileName.textContent = "";
         fetchFiles();
+        if (noErrorOccurred) {
+          showSuccess("Upload successful");
+        }
         return;
       }
 
@@ -282,14 +377,21 @@
         if (xhr.status === 200) {
           uploadedBytes += file.size;
         } else {
-          console.error("Upload failed with status", xhr.status);
+          if (xhr.status === 409) {
+            showError("File already exists: " + file.name);
+            noErrorOccurred = false;
+          } else {
+            showError("Upload failed: " + file.name);
+            noErrorOccurred = false;
+          }
         }
         idx++;
         uploadNext();
       });
 
       xhr.addEventListener("error", () => {
-        console.error("Network/server error during upload.");
+        showError("Network or server error during upload.");
+        noErrorOccurred = false;
         idx++;
         uploadNext();
       });

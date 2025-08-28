@@ -9,7 +9,7 @@ body {
 }
 
 /* Dropzone */
-#dropzone {
+.dropzone {
   border: 2px dashed #888;
   border-radius: 10px;
   color: #fefefe;
@@ -20,8 +20,20 @@ body {
   transition: all 0.3s ease;
 }
 
-#dropzone:hover {
+.dropzone:hover {
   color: #0fff50;
+}
+
+.dropzone.error {
+  border: 2px solid #ff4d4d;
+  color: #ff4d4d;
+  font-weight: bold;
+}
+
+.dropzone.success {
+  border: 2px solid #0fff50;
+  color: #0fff50;
+  font-weight: bold;
 }
 
 /* File list */
