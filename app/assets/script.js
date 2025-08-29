@@ -295,31 +295,25 @@
   }
 
   function showError(msg) {
+    showMessage(msg, "error", 2000);
+  }
+
+  function showMessage(msg, type, duration = 2000) {
     const original = "Drag & drop files here or click to select";
     UI.dropzone.innerHTML = msg;
-    UI.dropzone.classList.add("error");
+    UI.dropzone.classList.add(type);
 
     if (ErrorTimeout) clearTimeout(ErrorTimeout);
 
     ErrorTimeout = setTimeout(() => {
       UI.dropzone.innerHTML = original;
-      UI.dropzone.classList.remove("error");
+      UI.dropzone.classList.remove(type);
       ErrorTimeout = null;
-    }, 2000);
+    }, duration);
   }
 
   function showSuccess(msg) {
-    const original = "Drag & drop files here or click to select";
-    UI.dropzone.innerHTML = msg;
-    UI.dropzone.classList.add("success");
-
-    if (ErrorTimeout) clearTimeout(ErrorTimeout);
-
-    ErrorTimeout = setTimeout(() => {
-      UI.dropzone.innerHTML = original;
-      UI.dropzone.classList.remove("success");
-      ErrorTimeout = null;
-    }, 1500);
+    showMessage(msg, "success", 1500);
   }
 
   function updateUI() {
