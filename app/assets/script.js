@@ -188,6 +188,17 @@
     return link;
   }
 
+  function finishUpload(success) {
+    UI.overallProgressContainer.style.display = "none";
+    UI.overallProgress.value = 0;
+    UI.overallStatus.textContent = "";
+    UI.currentFileName.textContent = "";
+    fetchFiles();
+    if (success) {
+      showSuccess("Upload successful");
+    }
+  }
+
   function getUIElements() {
     UI.currentFileName = document.getElementById("currentFileName");
     UI.dropzone = document.getElementById("dropzone");
@@ -217,6 +228,13 @@
     if (bytesPerSec < 1024 * 1024)
       return (bytesPerSec / 1024).toFixed(1) + " KB/s";
     return (bytesPerSec / (1024 * 1024)).toFixed(2) + " MB/s";
+  }
+
+  function initUIProgress() {
+    UI.overallProgressContainer.style.display = "block";
+    UI.overallProgress.value = 0;
+    UI.overallStatus.textContent = "";
+    UI.currentFileName.textContent = "";
   }
 
   function renderFileList(files) {
@@ -324,43 +342,23 @@
     const files = Array.from(fileListLike);
     if (files.length === 0) return;
 
-    for (const f of files) {
-      if (sanitizeFilename(f.name) == ".upload") {
-        showError("Invalid filename: .upload");
-        return;
-      }
-      if (sanitizeFilename(f.name) in Files) {
-        showError("File already exists: " + f.name);
-        return;
-      }
-    }
+    if (!validateFiles(files)) return;
 
-    let noErrorOccurred = true;
-
-    UI.overallProgressContainer.style.display = "block";
-    UI.overallProgress.value = 0;
-    UI.overallStatus.textContent = "";
-    UI.currentFileName.textContent = "";
+    initUIProgress();
 
     const totalSize = files.reduce((sum, f) => sum + f.size, 0);
     let uploadedBytes = 0;
-    const t0 = Date.now();
-    let idx = 0;
+    let currentIndex = 0;
+    const startTime = Date.now();
+    let allSuccessful = true;
 
-    const uploadNext = () => {
-      if (idx >= files.length) {
-        UI.overallProgressContainer.style.display = "none";
-        UI.overallProgress.value = 0;
-        UI.overallStatus.textContent = "";
-        UI.currentFileName.textContent = "";
-        fetchFiles();
-        if (noErrorOccurred) {
-          showSuccess("Upload successful");
-        }
+    function uploadNext() {
+      if (currentIndex >= files.length) {
+        finishUpload(allSuccessful);
         return;
       }
 
-      const file = files[idx];
+      const file = files[currentIndex];
       UI.currentFileName.textContent = file.name;
 
       const xhr = new XMLHttpRequest();
@@ -368,59 +366,75 @@
       form.append("uploadfile", file);
 
       xhr.upload.addEventListener("progress", (e) => {
-        if (!e.lengthComputable) return;
-
-        const totalUploaded = uploadedBytes + e.loaded;
-        const percent = (totalUploaded / totalSize) * 100;
-        UI.overallProgress.value = percent;
-
-        const elapsed = (Date.now() - t0) / 1000;
-        const speed = totalUploaded / elapsed;
-        const speedStr = humanReadableSpeed(speed);
-
-        const remainingBytes = totalSize - totalUploaded;
-        const etaSec = speed > 0 ? remainingBytes / speed : Infinity;
-        const min = Math.floor(etaSec / 60);
-        const sec = Math.floor(etaSec % 60);
-
-        UI.overallStatus.textContent =
-          `${percent.toFixed(1)}% (${(totalSize / 1024 / 1024).toFixed(
-            1
-          )} MB total) — ` +
-          `Speed: ${speedStr}, Est. time left: ${
-            isFinite(etaSec) ? `${min}m ${sec}s` : "calculating…"
-          }`;
+        if (e.lengthComputable) {
+          updateProgressUI(uploadedBytes + e.loaded, totalSize, startTime);
+        }
       });
 
       xhr.addEventListener("load", () => {
         if (xhr.status === 200) {
           uploadedBytes += file.size;
+        } else if (xhr.status === 409) {
+          showError("File already exists: " + file.name);
+          allSuccessful = false;
         } else {
-          if (xhr.status === 409) {
-            showError("File already exists: " + file.name);
-            noErrorOccurred = false;
-          } else {
-            showError("Upload failed: " + file.name);
-            noErrorOccurred = false;
-          }
+          showError("Upload failed: " + file.name);
+          allSuccessful = false;
         }
-        idx++;
+        currentIndex++;
         uploadNext();
       });
 
       xhr.addEventListener("error", () => {
         showError("Network or server error during upload.");
-        noErrorOccurred = false;
-        idx++;
+        allSuccessful = false;
+        currentIndex++;
         uploadNext();
       });
 
       xhr.open("POST", AppConfig.Endpoints.Upload);
       xhr.send(form);
-    };
+    }
 
     fetchFiles();
     uploadNext();
+  }
+
+  function updateProgressUI(totalUploaded, totalSize, startTime) {
+    const percent = (totalUploaded / totalSize) * 100;
+    UI.overallProgress.value = percent;
+
+    const elapsed = (Date.now() - startTime) / 1000;
+    const speed = totalUploaded / elapsed;
+    const speedStr = humanReadableSpeed(speed);
+
+    const remainingBytes = totalSize - totalUploaded;
+    const etaSec = speed > 0 ? remainingBytes / speed : Infinity;
+    const min = Math.floor(etaSec / 60);
+    const sec = Math.floor(etaSec % 60);
+
+    UI.overallStatus.textContent =
+      `${percent.toFixed(1)}% (${(totalSize / 1024 / 1024).toFixed(
+        1
+      )} MB total) — ` +
+      `Speed: ${speedStr}, Est. time left: ${
+        isFinite(etaSec) ? `${min}m ${sec}s` : "calculating…"
+      }`;
+  }
+
+  function validateFiles(files) {
+    for (const f of files) {
+      const safeName = sanitizeFilename(f.name);
+      if (safeName === ".upload") {
+        showError("Invalid filename: .upload");
+        return false;
+      }
+      if (safeName in Files) {
+        showError("File already exists: " + f.name);
+        return false;
+      }
+    }
+    return true;
   }
 
   document.addEventListener("DOMContentLoaded", initApp);
