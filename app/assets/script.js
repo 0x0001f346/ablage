@@ -15,22 +15,6 @@
     fetchFiles();
   }
 
-  function updateUI() {
-    if (AppConfig.Modes.Readonly) {
-      UI.dropzone.style.display = "none";
-    } else {
-      UI.dropzone.style.display = "block";
-    }
-
-    if (AppConfig.Modes.Sinkhole) {
-      UI.fileList.style.display = "none";
-      UI.sinkholeModeInfo.style.display = "block";
-    } else {
-      UI.fileList.style.display = "block";
-      UI.sinkholeModeInfo.style.display = "none";
-    }
-  }
-
   async function initApp() {
     addUIElementsToBody();
     getUIElements();
@@ -58,72 +42,48 @@
 
   async function fetchFiles() {
     if (AppConfig.Modes.Sinkhole) {
-      UI.fileList.innerHTML = "";
+      clearFileList();
       return;
     }
 
     try {
-      const res = await fetch(AppConfig.Endpoints.Files, { cache: "no-store" });
-      if (!res.ok) throw new Error("HTTP " + res.status);
-      const files = await res.json();
-
+      const files = await fetchFileList();
       Files = {};
-
-      if (!UI.fileList) return;
-      UI.fileList.innerHTML = "";
-      files.forEach((file) => {
-        Files[file.Name] = true;
-
-        const size = humanReadableSize(file.Size);
-
-        const li = document.createElement("li");
-
-        const downloadLink = document.createElement("a");
-        downloadLink.className = "download-link";
-        downloadLink.href = AppConfig.Endpoints.FilesGet.replace(
-          ":filename",
-          encodeURIComponent(file.Name)
-        );
-        downloadLink.textContent = `${file.Name} (${size})`;
-
-        li.appendChild(downloadLink);
-
-        if (!AppConfig.Modes.Readonly) {
-          const deleteLink = document.createElement("a");
-          deleteLink.className = "delete-link";
-          deleteLink.href = "#";
-          deleteLink.textContent = " [Delete]";
-          deleteLink.title = "Delete file";
-          deleteLink.addEventListener("click", async (e) => {
-            e.preventDefault();
-            if (!confirm(`Do you really want to delete "${file.Name}"?`))
-              return;
-            try {
-              const r = await fetch(
-                AppConfig.Endpoints.FilesDelete.replace(
-                  ":filename",
-                  encodeURIComponent(file.Name)
-                ),
-                { method: "GET" }
-              );
-              if (r.ok) {
-                showSuccess("File deleted");
-              } else {
-                showError("Delete failed");
-              }
-              fetchFiles();
-            } catch (err) {
-              console.error(err);
-            }
-          });
-
-          li.appendChild(deleteLink);
-        }
-
-        UI.fileList.appendChild(li);
-      });
+      clearFileList();
+      renderFileList(files);
     } catch (err) {
       console.error("fetchFiles failed:", err);
+    }
+  }
+
+  async function fetchFileList() {
+    const res = await fetch(AppConfig.Endpoints.Files, { cache: "no-store" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    return res.json();
+  }
+
+  async function handleDeleteClick(event, file) {
+    event.preventDefault();
+    if (!confirm(`Do you really want to delete "${file.Name}"?`)) return;
+
+    try {
+      const res = await fetch(
+        AppConfig.Endpoints.FilesDelete.replace(
+          ":filename",
+          encodeURIComponent(file.Name)
+        ),
+        { method: "GET" }
+      );
+
+      if (res.ok) {
+        showSuccess("File deleted");
+      } else {
+        showError("Delete failed");
+      }
+
+      fetchFiles();
+    } catch (err) {
+      showError("Delete failed");
     }
   }
 
@@ -202,6 +162,32 @@
     document.body.appendChild(divSinkholeModeInfo);
   }
 
+  function clearFileList() {
+    if (UI.fileList) UI.fileList.innerHTML = "";
+  }
+
+  function createDownloadLink(file) {
+    const size = humanReadableSize(file.Size);
+    const link = document.createElement("a");
+    link.className = "download-link";
+    link.href = AppConfig.Endpoints.FilesGet.replace(
+      ":filename",
+      encodeURIComponent(file.Name)
+    );
+    link.textContent = `${file.Name} (${size})`;
+    return link;
+  }
+
+  function createDeleteLink(file) {
+    const link = document.createElement("a");
+    link.className = "delete-link";
+    link.href = "#";
+    link.textContent = " [Delete]";
+    link.title = "Delete file";
+    link.addEventListener("click", (e) => handleDeleteClick(e, file));
+    return link;
+  }
+
   function getUIElements() {
     UI.currentFileName = document.getElementById("currentFileName");
     UI.dropzone = document.getElementById("dropzone");
@@ -231,6 +217,23 @@
     if (bytesPerSec < 1024 * 1024)
       return (bytesPerSec / 1024).toFixed(1) + " KB/s";
     return (bytesPerSec / (1024 * 1024)).toFixed(2) + " MB/s";
+  }
+
+  function renderFileList(files) {
+    if (!UI.fileList) return;
+
+    files.forEach((file) => {
+      Files[file.Name] = true;
+
+      const li = document.createElement("li");
+      li.appendChild(createDownloadLink(file));
+
+      if (!AppConfig.Modes.Readonly) {
+        li.appendChild(createDeleteLink(file));
+      }
+
+      UI.fileList.appendChild(li);
+    });
   }
 
   function sanitizeFilename(dirtyFilename) {
@@ -299,6 +302,22 @@
       UI.dropzone.classList.remove("success");
       ErrorTimeout = null;
     }, 1500);
+  }
+
+  function updateUI() {
+    if (AppConfig.Modes.Readonly) {
+      UI.dropzone.style.display = "none";
+    } else {
+      UI.dropzone.style.display = "block";
+    }
+
+    if (AppConfig.Modes.Sinkhole) {
+      UI.fileList.style.display = "none";
+      UI.sinkholeModeInfo.style.display = "block";
+    } else {
+      UI.fileList.style.display = "block";
+      UI.sinkholeModeInfo.style.display = "none";
+    }
   }
 
   function uploadFiles(fileListLike) {
