@@ -4,6 +4,7 @@
   let AppConfig = null;
   let ErrorTimeout = null;
   let Files = {};
+  const DEFAULT_DROPZONE_TEXT = "Drag & drop files here or click to select";
   const UI = {};
 
   async function appLoop() {
@@ -120,7 +121,7 @@
     const divDropzone = document.createElement("div");
     divDropzone.className = "dropzone";
     divDropzone.id = "dropzone";
-    divDropzone.innerHTML = "Drag & drop files here or click to select";
+    divDropzone.innerHTML = DEFAULT_DROPZONE_TEXT;
     divDropzone.style.display = "none";
     document.body.appendChild(divDropzone);
 
@@ -299,14 +300,13 @@
   }
 
   function showMessage(msg, type, duration = 2000) {
-    const original = "Drag & drop files here or click to select";
     UI.dropzone.innerHTML = msg;
     UI.dropzone.classList.add(type);
 
     if (ErrorTimeout) clearTimeout(ErrorTimeout);
 
     ErrorTimeout = setTimeout(() => {
-      UI.dropzone.innerHTML = original;
+      UI.dropzone.innerHTML = DEFAULT_DROPZONE_TEXT;
       UI.dropzone.classList.remove(type);
       ErrorTimeout = null;
     }, duration);
