@@ -1,14 +1,16 @@
 (() => {
   "use strict";
 
-  let AppConfig = null;
-  let ErrorTimeout = null;
-  let Files = {};
   const DEFAULT_DROPZONE_TEXT = "Drag & drop files here or click to select";
-  const UI = {};
+  const state = {
+    config: null,
+    files: {},
+    ui: {},
+    errorTimeout: null,
+  };
 
   async function appLoop() {
-    if (AppConfig === null) {
+    if (state.config === null) {
       return;
     }
 
@@ -34,22 +36,22 @@
       if (!res.ok) {
         console.error("HTTP error:", res.status);
       }
-      AppConfig = await res.json();
+      state.config = await res.json();
     } catch (err) {
       console.error("Failed to load config:", err);
-      AppConfig = null;
+      state.config = null;
     }
   }
 
   async function fetchFiles() {
-    if (AppConfig.Modes.Sinkhole) {
+    if (state.config.Modes.Sinkhole) {
       clearFileList();
       return;
     }
 
     try {
       const files = await fetchFileList();
-      Files = {};
+      state.files = {};
       clearFileList();
       renderFileList(files);
     } catch (err) {
@@ -58,7 +60,9 @@
   }
 
   async function fetchFileList() {
-    const res = await fetch(AppConfig.Endpoints.Files, { cache: "no-store" });
+    const res = await fetch(state.config.Endpoints.Files, {
+      cache: "no-store",
+    });
     if (!res.ok) throw new Error("HTTP " + res.status);
     return res.json();
   }
@@ -69,7 +73,7 @@
 
     try {
       const res = await fetch(
-        AppConfig.Endpoints.FilesDelete.replace(
+        state.config.Endpoints.FilesDelete.replace(
           ":filename",
           encodeURIComponent(file.Name)
         ),
@@ -89,20 +93,23 @@
   }
 
   function addEventListeners() {
-    UI.dropzone.addEventListener("click", () => UI.fileInput.click());
-    UI.fileInput.addEventListener("change", () => {
-      if (UI.fileInput.files.length > 0) uploadFiles(UI.fileInput.files);
+    state.ui.dropzone.addEventListener("click", () =>
+      state.ui.fileInput.click()
+    );
+    state.ui.fileInput.addEventListener("change", () => {
+      if (state.ui.fileInput.files.length > 0)
+        uploadFiles(state.ui.fileInput.files);
     });
-    UI.dropzone.addEventListener("dragover", (e) => {
+    state.ui.dropzone.addEventListener("dragover", (e) => {
       e.preventDefault();
-      UI.dropzone.style.borderColor = "#0fff50";
+      state.ui.dropzone.style.borderColor = "#0fff50";
     });
-    UI.dropzone.addEventListener("dragleave", () => {
-      UI.dropzone.style.borderColor = "#888";
+    state.ui.dropzone.addEventListener("dragleave", () => {
+      state.ui.dropzone.style.borderColor = "#888";
     });
-    UI.dropzone.addEventListener("drop", (e) => {
+    state.ui.dropzone.addEventListener("drop", (e) => {
       e.preventDefault();
-      UI.dropzone.style.borderColor = "#888";
+      state.ui.dropzone.style.borderColor = "#888";
       if (e.dataTransfer.files.length > 0) uploadFiles(e.dataTransfer.files);
     });
   }
@@ -164,14 +171,14 @@
   }
 
   function clearFileList() {
-    if (UI.fileList) UI.fileList.innerHTML = "";
+    if (state.ui.fileList) state.ui.fileList.innerHTML = "";
   }
 
   function createDownloadLink(file) {
     const size = humanReadableSize(file.Size);
     const link = document.createElement("a");
     link.className = "download-link";
-    link.href = AppConfig.Endpoints.FilesGet.replace(
+    link.href = state.config.Endpoints.FilesGet.replace(
       ":filename",
       encodeURIComponent(file.Name)
     );
@@ -190,10 +197,10 @@
   }
 
   function finishUpload(success) {
-    UI.overallProgressContainer.style.display = "none";
-    UI.overallProgress.value = 0;
-    UI.overallStatus.textContent = "";
-    UI.currentFileName.textContent = "";
+    state.ui.overallProgressContainer.style.display = "none";
+    state.ui.overallProgress.value = 0;
+    state.ui.overallStatus.textContent = "";
+    state.ui.currentFileName.textContent = "";
     fetchFiles();
     if (success) {
       showSuccess("Upload successful");
@@ -201,16 +208,16 @@
   }
 
   function getUIElements() {
-    UI.currentFileName = document.getElementById("currentFileName");
-    UI.dropzone = document.getElementById("dropzone");
-    UI.fileInput = document.getElementById("fileInput");
-    UI.fileList = document.getElementById("file-list");
-    UI.overallProgress = document.getElementById("overallProgress");
-    UI.overallStatus = document.getElementById("overallStatus");
-    UI.overallProgressContainer = document.getElementById(
+    state.ui.currentFileName = document.getElementById("currentFileName");
+    state.ui.dropzone = document.getElementById("dropzone");
+    state.ui.fileInput = document.getElementById("fileInput");
+    state.ui.fileList = document.getElementById("file-list");
+    state.ui.overallProgress = document.getElementById("overallProgress");
+    state.ui.overallStatus = document.getElementById("overallStatus");
+    state.ui.overallProgressContainer = document.getElementById(
       "overallProgressContainer"
     );
-    UI.sinkholeModeInfo = document.getElementById("sinkholeModeInfo");
+    state.ui.sinkholeModeInfo = document.getElementById("sinkholeModeInfo");
   }
 
   function humanReadableSize(bytes) {
@@ -232,26 +239,26 @@
   }
 
   function initUIProgress() {
-    UI.overallProgressContainer.style.display = "block";
-    UI.overallProgress.value = 0;
-    UI.overallStatus.textContent = "";
-    UI.currentFileName.textContent = "";
+    state.ui.overallProgressContainer.style.display = "block";
+    state.ui.overallProgress.value = 0;
+    state.ui.overallStatus.textContent = "";
+    state.ui.currentFileName.textContent = "";
   }
 
   function renderFileList(files) {
-    if (!UI.fileList) return;
+    if (!state.ui.fileList) return;
 
     files.forEach((file) => {
-      Files[file.Name] = true;
+      state.files[file.Name] = true;
 
       const li = document.createElement("li");
       li.appendChild(createDownloadLink(file));
 
-      if (!AppConfig.Modes.Readonly) {
+      if (!state.config.Modes.Readonly) {
         li.appendChild(createDeleteLink(file));
       }
 
-      UI.fileList.appendChild(li);
+      state.ui.fileList.appendChild(li);
     });
   }
 
@@ -300,15 +307,15 @@
   }
 
   function showMessage(msg, type, duration = 2000) {
-    UI.dropzone.innerHTML = msg;
-    UI.dropzone.classList.add(type);
+    state.ui.dropzone.innerHTML = msg;
+    state.ui.dropzone.classList.add(type);
 
-    if (ErrorTimeout) clearTimeout(ErrorTimeout);
+    if (state.errorTimeout) clearTimeout(state.errorTimeout);
 
-    ErrorTimeout = setTimeout(() => {
-      UI.dropzone.innerHTML = DEFAULT_DROPZONE_TEXT;
-      UI.dropzone.classList.remove(type);
-      ErrorTimeout = null;
+    state.errorTimeout = setTimeout(() => {
+      state.ui.dropzone.innerHTML = DEFAULT_DROPZONE_TEXT;
+      state.ui.dropzone.classList.remove(type);
+      state.errorTimeout = null;
     }, duration);
   }
 
@@ -317,18 +324,18 @@
   }
 
   function updateUI() {
-    if (AppConfig.Modes.Readonly) {
-      UI.dropzone.style.display = "none";
+    if (state.config.Modes.Readonly) {
+      state.ui.dropzone.style.display = "none";
     } else {
-      UI.dropzone.style.display = "block";
+      state.ui.dropzone.style.display = "block";
     }
 
-    if (AppConfig.Modes.Sinkhole) {
-      UI.fileList.style.display = "none";
-      UI.sinkholeModeInfo.style.display = "block";
+    if (state.config.Modes.Sinkhole) {
+      state.ui.fileList.style.display = "none";
+      state.ui.sinkholeModeInfo.style.display = "block";
     } else {
-      UI.fileList.style.display = "block";
-      UI.sinkholeModeInfo.style.display = "none";
+      state.ui.fileList.style.display = "block";
+      state.ui.sinkholeModeInfo.style.display = "none";
     }
   }
 
@@ -353,7 +360,7 @@
       }
 
       const file = files[currentIndex];
-      UI.currentFileName.textContent = file.name;
+      state.ui.currentFileName.textContent = file.name;
 
       const xhr = new XMLHttpRequest();
       const form = new FormData();
@@ -386,7 +393,7 @@
         uploadNext();
       });
 
-      xhr.open("POST", AppConfig.Endpoints.Upload);
+      xhr.open("POST", state.config.Endpoints.Upload);
       xhr.send(form);
     }
 
@@ -396,7 +403,7 @@
 
   function updateProgressUI(totalUploaded, totalSize, startTime) {
     const percent = (totalUploaded / totalSize) * 100;
-    UI.overallProgress.value = percent;
+    state.ui.overallProgress.value = percent;
 
     const elapsed = (Date.now() - startTime) / 1000;
     const speed = totalUploaded / elapsed;
@@ -407,7 +414,7 @@
     const min = Math.floor(etaSec / 60);
     const sec = Math.floor(etaSec % 60);
 
-    UI.overallStatus.textContent =
+    state.ui.overallStatus.textContent =
       `${percent.toFixed(1)}% (${(totalSize / 1024 / 1024).toFixed(
         1
       )} MB total) — ` +
@@ -423,7 +430,7 @@
         showError("Invalid filename: .upload");
         return false;
       }
-      if (safeName in Files) {
+      if (safeName in state.files) {
         showError("File already exists: " + f.name);
         return false;
       }
