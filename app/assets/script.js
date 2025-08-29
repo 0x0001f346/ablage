@@ -271,20 +271,30 @@
 
     const lastDot = filenameWithoutPath.lastIndexOf(".");
     const extension = lastDot !== -1 ? filenameWithoutPath.slice(lastDot) : "";
-    let filenameWithoutPathAndExtension =
+    let nameOnly =
       lastDot !== -1
         ? filenameWithoutPath.slice(0, lastDot)
         : filenameWithoutPath;
 
-    let cleanedFilename = filenameWithoutPathAndExtension
-      .replace(/ /g, "_")
-      .replace(/Ä/g, "Ae")
-      .replace(/ä/g, "ae")
-      .replace(/Ö/g, "Oe")
-      .replace(/ö/g, "oe")
-      .replace(/Ü/g, "Ue")
-      .replace(/ü/g, "ue")
-      .replace(/ß/g, "ss");
+    const charMap = {
+      Ä: "Ae",
+      ä: "ae",
+      Ö: "Oe",
+      ö: "oe",
+      Ü: "Ue",
+      ü: "ue",
+      ß: "ss",
+    };
+
+    let cleanedFilename = nameOnly.replace(/./g, (char) => {
+      if (charMap[char]) {
+        return charMap[char];
+      }
+      if (char === " ") {
+        return "_";
+      }
+      return char;
+    });
 
     cleanedFilename = cleanedFilename.replace(/[^a-zA-Z0-9._-]+/g, "_");
 
@@ -294,9 +304,9 @@
 
     cleanedFilename = cleanedFilename.replace(/^_+|_+$/g, "");
 
-    const maxLenFilename = 128;
-    if (cleanedFilename.length > maxLenFilename) {
-      cleanedFilename = cleanedFilename.slice(0, maxLenFilename);
+    const MAX_LEN = 128;
+    if (cleanedFilename.length > MAX_LEN) {
+      cleanedFilename = cleanedFilename.slice(0, MAX_LEN);
     }
 
     return cleanedFilename + extension;
