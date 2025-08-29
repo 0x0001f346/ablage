@@ -76,7 +76,7 @@
       );
 
       if (res.ok) {
-        showSuccess("File deleted");
+        showSuccess("File deleted: " + file.Name);
       } else {
         showError("Delete failed");
       }
