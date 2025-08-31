@@ -9,28 +9,32 @@
     errorTimeout: null,
   };
 
-  async function appLoop() {
+  // ===== app ==============================
+
+  async function appInit() {
+    uiBuildElements();
+    uiCacheElements();
+    uiBindEvents();
+
+    await configLoad();
+    appUpdate();
+
+    setInterval(appUpdate, 5 * 1000);
+    setInterval(configLoad, 60 * 1000);
+  }
+
+  async function appUpdate() {
     if (state.config === null) {
       return;
     }
 
-    updateUI();
-    fetchFiles();
+    uiUpdate();
+    fileListFetch();
   }
 
-  async function initApp() {
-    addUIElementsToBody();
-    getUIElements();
-    addEventListeners();
+  // ===== config ===========================
 
-    await loadAppConfig();
-    appLoop();
-
-    setInterval(appLoop, 5 * 1000);
-    setInterval(loadAppConfig, 60 * 1000);
-  }
-
-  async function loadAppConfig() {
+  async function configLoad() {
     try {
       const res = await fetch("/config/", { cache: "no-store" });
       if (!res.ok) {
@@ -43,31 +47,9 @@
     }
   }
 
-  async function fetchFiles() {
-    if (state.config.Modes.Sinkhole) {
-      clearFileList();
-      return;
-    }
+  // ===== files ============================
 
-    try {
-      const files = await fetchFileList();
-      state.files = {};
-      clearFileList();
-      renderFileList(files);
-    } catch (err) {
-      console.error("fetchFiles failed:", err);
-    }
-  }
-
-  async function fetchFileList() {
-    const res = await fetch(state.config.Endpoints.Files, {
-      cache: "no-store",
-    });
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    return res.json();
-  }
-
-  async function handleDeleteClick(event, file) {
+  async function fileDeleteClickHandler(event, file) {
     event.preventDefault();
     if (!confirm(`Do you really want to delete "${file.Name}"?`)) return;
 
@@ -81,24 +63,136 @@
       );
 
       if (res.ok) {
-        showSuccess("File deleted: " + file.Name);
+        uiShowSuccess("File deleted: " + file.Name);
       } else {
-        showError("Delete failed");
+        uiShowError("Delete failed");
       }
 
-      fetchFiles();
+      fileListFetch();
     } catch (err) {
-      showError("Delete failed");
+      uiShowError("Delete failed");
     }
   }
 
-  function addEventListeners() {
+  async function fileListFetch() {
+    if (state.config.Modes.Sinkhole) {
+      fileListClear();
+      return;
+    }
+
+    try {
+      const files = await fileListRequest();
+      state.files = {};
+      fileListClear();
+      fileListRender(files);
+    } catch (err) {
+      console.error("fileListFetch failed:", err);
+    }
+  }
+
+  async function fileListRequest() {
+    const res = await fetch(state.config.Endpoints.Files, {
+      cache: "no-store",
+    });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    return res.json();
+  }
+
+  function fileListClear() {
+    if (state.ui.fileList) state.ui.fileList.innerHTML = "";
+  }
+
+  function fileListRender(files) {
+    if (!state.ui.fileList) return;
+
+    files.forEach((file) => {
+      state.files[file.Name] = true;
+
+      const li = document.createElement("li");
+      li.appendChild(uiCreateDownloadLink(file));
+
+      if (!state.config.Modes.Readonly) {
+        li.appendChild(uiCreateDeleteLink(file));
+      }
+
+      state.ui.fileList.appendChild(li);
+    });
+  }
+
+  function fileSanitizeName(dirtyFilename) {
+    if (!dirtyFilename || dirtyFilename.trim() === "") {
+      return "upload.bin";
+    }
+
+    const filenameWithoutPath = dirtyFilename.split(/[\\/]/).pop();
+
+    const lastDot = filenameWithoutPath.lastIndexOf(".");
+    const extension = lastDot !== -1 ? filenameWithoutPath.slice(lastDot) : "";
+    let nameOnly =
+      lastDot !== -1
+        ? filenameWithoutPath.slice(0, lastDot)
+        : filenameWithoutPath;
+
+    const charMap = {
+      Ä: "Ae",
+      ä: "ae",
+      Ö: "Oe",
+      ö: "oe",
+      Ü: "Ue",
+      ü: "ue",
+      ß: "ss",
+    };
+
+    let cleanedFilename = nameOnly.replace(/./g, (char) => {
+      if (charMap[char]) {
+        return charMap[char];
+      }
+      if (char === " ") {
+        return "_";
+      }
+      return char;
+    });
+
+    cleanedFilename = cleanedFilename.replace(/[^a-zA-Z0-9._-]+/g, "_");
+
+    while (cleanedFilename.includes("__")) {
+      cleanedFilename = cleanedFilename.replace(/__+/g, "_");
+    }
+
+    cleanedFilename = cleanedFilename.replace(/^_+|_+$/g, "");
+
+    const MAX_LEN = 128;
+    if (cleanedFilename.length > MAX_LEN) {
+      cleanedFilename = cleanedFilename.slice(0, MAX_LEN);
+    }
+
+    return cleanedFilename + extension;
+  }
+
+  function fileValidateBeforeUpload(files) {
+    for (const f of files) {
+      const safeName = fileSanitizeName(f.name);
+      if (safeName === ".upload") {
+        uiShowError("Invalid filename: .upload");
+        return false;
+      }
+      if (safeName in state.files) {
+        uiShowError("File already exists: " + f.name);
+        return false;
+      }
+    }
+    return true;
+  }
+
+  // ===== ui ===============================
+
+  function uiBindEvents() {
     state.ui.dropzone.addEventListener("click", () =>
       state.ui.fileInput.click()
     );
     state.ui.fileInput.addEventListener("change", () => {
       if (state.ui.fileInput.files.length > 0)
-        uploadFiles(state.ui.fileInput.files);
+        uploadStart(state.ui.fileInput.files);
     });
     state.ui.dropzone.addEventListener("dragover", (e) => {
       e.preventDefault();
@@ -110,11 +204,11 @@
     state.ui.dropzone.addEventListener("drop", (e) => {
       e.preventDefault();
       state.ui.dropzone.style.borderColor = "#888";
-      if (e.dataTransfer.files.length > 0) uploadFiles(e.dataTransfer.files);
+      if (e.dataTransfer.files.length > 0) uploadStart(e.dataTransfer.files);
     });
   }
 
-  function addUIElementsToBody() {
+  function uiBuildElements() {
     document.body.innerHTML = "";
 
     const aLogo = document.createElement("a");
@@ -170,44 +264,7 @@
     document.body.appendChild(divSinkholeModeInfo);
   }
 
-  function clearFileList() {
-    if (state.ui.fileList) state.ui.fileList.innerHTML = "";
-  }
-
-  function createDownloadLink(file) {
-    const size = humanReadableSize(file.Size);
-    const link = document.createElement("a");
-    link.className = "download-link";
-    link.href = state.config.Endpoints.FilesGet.replace(
-      ":filename",
-      encodeURIComponent(file.Name)
-    );
-    link.textContent = `${file.Name} (${size})`;
-    return link;
-  }
-
-  function createDeleteLink(file) {
-    const link = document.createElement("a");
-    link.className = "delete-link";
-    link.href = "#";
-    link.textContent = " [Delete]";
-    link.title = "Delete file";
-    link.addEventListener("click", (e) => handleDeleteClick(e, file));
-    return link;
-  }
-
-  function finishUpload(success) {
-    state.ui.overallProgressContainer.style.display = "none";
-    state.ui.overallProgress.value = 0;
-    state.ui.overallStatus.textContent = "";
-    state.ui.currentFileName.textContent = "";
-    fetchFiles();
-    if (success) {
-      showSuccess("Upload successful");
-    }
-  }
-
-  function getUIElements() {
+  function uiCacheElements() {
     state.ui.currentFileName = document.getElementById("currentFileName");
     state.ui.dropzone = document.getElementById("dropzone");
     state.ui.fileInput = document.getElementById("fileInput");
@@ -220,7 +277,29 @@
     state.ui.sinkholeModeInfo = document.getElementById("sinkholeModeInfo");
   }
 
-  function humanReadableSize(bytes) {
+  function uiCreateDeleteLink(file) {
+    const link = document.createElement("a");
+    link.className = "delete-link";
+    link.href = "#";
+    link.textContent = " [Delete]";
+    link.title = "Delete file";
+    link.addEventListener("click", (e) => fileDeleteClickHandler(e, file));
+    return link;
+  }
+
+  function uiCreateDownloadLink(file) {
+    const size = uiFormatSize(file.Size);
+    const link = document.createElement("a");
+    link.className = "download-link";
+    link.href = state.config.Endpoints.FilesGet.replace(
+      ":filename",
+      encodeURIComponent(file.Name)
+    );
+    link.textContent = `${file.Name} (${size})`;
+    return link;
+  }
+
+  function uiFormatSize(bytes) {
     const units = ["B", "KB", "MB", "GB", "TB"];
     let i = 0;
     while (bytes >= 1024 && i < units.length - 1) {
@@ -230,7 +309,7 @@
     return `${bytes.toFixed(1)} ${units[i]}`;
   }
 
-  function humanReadableSpeed(bytesPerSec) {
+  function uiFormatSpeed(bytesPerSec) {
     if (!isFinite(bytesPerSec) || bytesPerSec <= 0) return "—";
     if (bytesPerSec < 1024) return bytesPerSec.toFixed(0) + " B/s";
     if (bytesPerSec < 1024 * 1024)
@@ -238,85 +317,18 @@
     return (bytesPerSec / (1024 * 1024)).toFixed(2) + " MB/s";
   }
 
-  function initUIProgress() {
+  function uiInitProgress() {
     state.ui.overallProgressContainer.style.display = "block";
     state.ui.overallProgress.value = 0;
     state.ui.overallStatus.textContent = "";
     state.ui.currentFileName.textContent = "";
   }
 
-  function renderFileList(files) {
-    if (!state.ui.fileList) return;
-
-    files.forEach((file) => {
-      state.files[file.Name] = true;
-
-      const li = document.createElement("li");
-      li.appendChild(createDownloadLink(file));
-
-      if (!state.config.Modes.Readonly) {
-        li.appendChild(createDeleteLink(file));
-      }
-
-      state.ui.fileList.appendChild(li);
-    });
+  function uiShowError(msg) {
+    uiShowMessage(msg, "error", 2000);
   }
 
-  function sanitizeFilename(dirtyFilename) {
-    if (!dirtyFilename || dirtyFilename.trim() === "") {
-      return "upload.bin";
-    }
-
-    const filenameWithoutPath = dirtyFilename.split(/[\\/]/).pop();
-
-    const lastDot = filenameWithoutPath.lastIndexOf(".");
-    const extension = lastDot !== -1 ? filenameWithoutPath.slice(lastDot) : "";
-    let nameOnly =
-      lastDot !== -1
-        ? filenameWithoutPath.slice(0, lastDot)
-        : filenameWithoutPath;
-
-    const charMap = {
-      Ä: "Ae",
-      ä: "ae",
-      Ö: "Oe",
-      ö: "oe",
-      Ü: "Ue",
-      ü: "ue",
-      ß: "ss",
-    };
-
-    let cleanedFilename = nameOnly.replace(/./g, (char) => {
-      if (charMap[char]) {
-        return charMap[char];
-      }
-      if (char === " ") {
-        return "_";
-      }
-      return char;
-    });
-
-    cleanedFilename = cleanedFilename.replace(/[^a-zA-Z0-9._-]+/g, "_");
-
-    while (cleanedFilename.includes("__")) {
-      cleanedFilename = cleanedFilename.replace(/__+/g, "_");
-    }
-
-    cleanedFilename = cleanedFilename.replace(/^_+|_+$/g, "");
-
-    const MAX_LEN = 128;
-    if (cleanedFilename.length > MAX_LEN) {
-      cleanedFilename = cleanedFilename.slice(0, MAX_LEN);
-    }
-
-    return cleanedFilename + extension;
-  }
-
-  function showError(msg) {
-    showMessage(msg, "error", 2000);
-  }
-
-  function showMessage(msg, type, duration = 2000) {
+  function uiShowMessage(msg, type, duration = 2000) {
     state.ui.dropzone.innerHTML = msg;
     state.ui.dropzone.classList.add(type);
 
@@ -329,11 +341,11 @@
     }, duration);
   }
 
-  function showSuccess(msg) {
-    showMessage(msg, "success", 1500);
+  function uiShowSuccess(msg) {
+    uiShowMessage(msg, "success", 1500);
   }
 
-  function updateUI() {
+  function uiUpdate() {
     if (state.config.Modes.Readonly) {
       state.ui.dropzone.style.display = "none";
     } else {
@@ -349,75 +361,13 @@
     }
   }
 
-  function uploadFiles(fileListLike) {
-    const files = Array.from(fileListLike);
-    if (files.length === 0) return;
-
-    if (!validateFiles(files)) return;
-
-    initUIProgress();
-
-    const totalSize = files.reduce((sum, f) => sum + f.size, 0);
-    let uploadedBytes = 0;
-    let currentIndex = 0;
-    const startTime = Date.now();
-    let allSuccessful = true;
-
-    function uploadNext() {
-      if (currentIndex >= files.length) {
-        finishUpload(allSuccessful);
-        return;
-      }
-
-      const file = files[currentIndex];
-      state.ui.currentFileName.textContent = file.name;
-
-      const xhr = new XMLHttpRequest();
-      const form = new FormData();
-      form.append("uploadfile", file);
-
-      xhr.upload.addEventListener("progress", (e) => {
-        if (e.lengthComputable) {
-          updateProgressUI(uploadedBytes + e.loaded, totalSize, startTime);
-        }
-      });
-
-      xhr.addEventListener("load", () => {
-        if (xhr.status === 200) {
-          uploadedBytes += file.size;
-        } else if (xhr.status === 409) {
-          showError("File already exists: " + file.name);
-          allSuccessful = false;
-        } else {
-          showError("Upload failed: " + file.name);
-          allSuccessful = false;
-        }
-        currentIndex++;
-        uploadNext();
-      });
-
-      xhr.addEventListener("error", () => {
-        showError("Network or server error during upload.");
-        allSuccessful = false;
-        currentIndex++;
-        uploadNext();
-      });
-
-      xhr.open("POST", state.config.Endpoints.Upload);
-      xhr.send(form);
-    }
-
-    fetchFiles();
-    uploadNext();
-  }
-
-  function updateProgressUI(totalUploaded, totalSize, startTime) {
+  function uiUpdateProgress(totalUploaded, totalSize, startTime) {
     const percent = (totalUploaded / totalSize) * 100;
     state.ui.overallProgress.value = percent;
 
     const elapsed = (Date.now() - startTime) / 1000;
     const speed = totalUploaded / elapsed;
-    const speedStr = humanReadableSpeed(speed);
+    const speedStr = uiFormatSpeed(speed);
 
     const remainingBytes = totalSize - totalUploaded;
     const etaSec = speed > 0 ? remainingBytes / speed : Infinity;
@@ -433,20 +383,82 @@
       }`;
   }
 
-  function validateFiles(files) {
-    for (const f of files) {
-      const safeName = sanitizeFilename(f.name);
-      if (safeName === ".upload") {
-        showError("Invalid filename: .upload");
-        return false;
-      }
-      if (safeName in state.files) {
-        showError("File already exists: " + f.name);
-        return false;
-      }
+  // ===== upload ===========================
+
+  function uploadFinish(success) {
+    state.ui.overallProgressContainer.style.display = "none";
+    state.ui.overallProgress.value = 0;
+    state.ui.overallStatus.textContent = "";
+    state.ui.currentFileName.textContent = "";
+    fileListFetch();
+    if (success) {
+      uiShowSuccess("Upload successful");
     }
-    return true;
   }
 
-  document.addEventListener("DOMContentLoaded", initApp);
+  function uploadStart(fileListLike) {
+    const files = Array.from(fileListLike);
+    if (files.length === 0) return;
+
+    if (!fileValidateBeforeUpload(files)) return;
+
+    uiInitProgress();
+
+    const totalSize = files.reduce((sum, f) => sum + f.size, 0);
+    let uploadedBytes = 0;
+    let currentIndex = 0;
+    const startTime = Date.now();
+    let allSuccessful = true;
+
+    function uploadNext() {
+      if (currentIndex >= files.length) {
+        uploadFinish(allSuccessful);
+        return;
+      }
+
+      const file = files[currentIndex];
+      state.ui.currentFileName.textContent = file.name;
+
+      const xhr = new XMLHttpRequest();
+      const form = new FormData();
+      form.append("uploadfile", file);
+
+      xhr.upload.addEventListener("progress", (e) => {
+        if (e.lengthComputable) {
+          uiUpdateProgress(uploadedBytes + e.loaded, totalSize, startTime);
+        }
+      });
+
+      xhr.addEventListener("load", () => {
+        if (xhr.status === 200) {
+          uploadedBytes += file.size;
+        } else if (xhr.status === 409) {
+          uiShowError("File already exists: " + file.name);
+          allSuccessful = false;
+        } else {
+          uiShowError("Upload failed: " + file.name);
+          allSuccessful = false;
+        }
+        currentIndex++;
+        uploadNext();
+      });
+
+      xhr.addEventListener("error", () => {
+        uiShowError("Network or server error during upload.");
+        allSuccessful = false;
+        currentIndex++;
+        uploadNext();
+      });
+
+      xhr.open("POST", state.config.Endpoints.Upload);
+      xhr.send(form);
+    }
+
+    fileListFetch();
+    uploadNext();
+  }
+
+  // ===== init ============================
+
+  document.addEventListener("DOMContentLoaded", appInit);
 })();
