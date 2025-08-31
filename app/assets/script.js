@@ -1,7 +1,6 @@
 (() => {
   "use strict";
 
-  const DEFAULT_DROPZONE_TEXT = "Drag & drop files here or click to select";
   const state = {
     config: null,
     files: {},
@@ -187,13 +186,14 @@
   // ===== ui ===============================
 
   function uiBindEvents() {
+    window.addEventListener(
+      "resize",
+      () => (state.ui.dropzone.innerHTML = uiGetDropzoneText())
+    );
+
     state.ui.dropzone.addEventListener("click", () =>
       state.ui.fileInput.click()
     );
-    state.ui.fileInput.addEventListener("change", () => {
-      if (state.ui.fileInput.files.length > 0)
-        uploadStart(state.ui.fileInput.files);
-    });
     state.ui.dropzone.addEventListener("dragover", (e) => {
       e.preventDefault();
       state.ui.dropzone.style.borderColor = "#0fff50";
@@ -205,6 +205,11 @@
       e.preventDefault();
       state.ui.dropzone.style.borderColor = "#888";
       if (e.dataTransfer.files.length > 0) uploadStart(e.dataTransfer.files);
+    });
+
+    state.ui.fileInput.addEventListener("change", () => {
+      if (state.ui.fileInput.files.length > 0)
+        uploadStart(state.ui.fileInput.files);
     });
   }
 
@@ -222,7 +227,7 @@
     const divDropzone = document.createElement("div");
     divDropzone.className = "dropzone";
     divDropzone.id = "dropzone";
-    divDropzone.innerHTML = DEFAULT_DROPZONE_TEXT;
+    divDropzone.innerHTML = uiGetDropzoneText();
     divDropzone.style.display = "none";
     document.body.appendChild(divDropzone);
 
@@ -317,6 +322,14 @@
     return (bytesPerSec / (1024 * 1024)).toFixed(2) + " MB/s";
   }
 
+  function uiGetDropzoneText() {
+    if (window.innerWidth <= 480) {
+      return "Tap to upload files";
+    }
+
+    return "Drag & drop files here or click to upload";
+  }
+
   function uiInitProgress() {
     state.ui.overallProgressContainer.style.display = "block";
     state.ui.overallProgress.value = 0;
@@ -335,7 +348,7 @@
     if (state.errorTimeout) clearTimeout(state.errorTimeout);
 
     state.errorTimeout = setTimeout(() => {
-      state.ui.dropzone.innerHTML = DEFAULT_DROPZONE_TEXT;
+      state.ui.dropzone.innerHTML = uiGetDropzoneText();
       state.ui.dropzone.classList.remove(type);
       state.errorTimeout = null;
     }, duration);
