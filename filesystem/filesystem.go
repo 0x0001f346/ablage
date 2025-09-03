@@ -2,6 +2,7 @@ package filesystem
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -27,6 +28,38 @@ func Init() error {
 	}
 
 	return nil
+}
+
+func DeleteFile(filename string) error {
+	return os.Remove(filepath.Join(config.GetPathDataFolder(), filename))
+}
+
+func GetFileListOfDataFolder() (map[string]int64, error) {
+	entries, err := os.ReadDir(config.GetPathDataFolder())
+	if err != nil {
+		return map[string]int64{}, fmt.Errorf(
+			"Data folder '%s' became unavailable: %v",
+			config.GetPathDataFolder(),
+			err,
+		)
+	}
+
+	files := map[string]int64{}
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+
+		info, err := entry.Info()
+		if err != nil {
+			log.Printf("WARN: Could not read info for '%s': %v", entry.Name(), err)
+			continue
+		}
+
+		files[info.Name()] = info.Size()
+	}
+
+	return files, nil
 }
 
 func GetHumanReadableSize(bytes int64) string {
