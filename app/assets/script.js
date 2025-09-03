@@ -80,7 +80,8 @@
     }
 
     try {
-      const files = await fileListRequest();
+      let files = await fileListRequest();
+      files = fileSortFiles(files, "name-asc");
       state.files = {};
       fileListClear();
       fileListRender(files);
@@ -166,6 +167,32 @@
     }
 
     return cleanedFilename + extension;
+  }
+
+  function fileSortFiles(files, mode = "name-asc") {
+    function cmpCodePoint(a, b) {
+      if (a === b) return 0;
+      return a < b ? -1 : 1;
+    }
+
+    const arr = files.slice();
+
+    switch (mode) {
+      case "name-asc":
+        arr.sort((a, b) => cmpCodePoint(a.Name, b.Name));
+        break;
+      case "name-desc":
+        arr.sort((a, b) => cmpCodePoint(b.Name, a.Name));
+        break;
+      case "size-asc":
+        arr.sort((a, b) => a.Size - b.Size);
+        break;
+      case "size-desc":
+        arr.sort((a, b) => b.Size - a.Size);
+        break;
+    }
+
+    return arr;
   }
 
   function fileValidateBeforeUpload(files) {
