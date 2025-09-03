@@ -11,12 +11,17 @@ import (
 )
 
 func Init() error {
-	err := prepareDataFolder()
+	err := createWriteableFolder(config.GetPathDataFolder())
 	if err != nil {
 		return err
 	}
 
-	err = prepareUploadDir()
+	err = os.RemoveAll(config.GetPathUploadFolder())
+	if err != nil {
+		return fmt.Errorf("Could not delete upload folder '%s': %v", config.GetPathUploadFolder(), err)
+	}
+
+	err = createWriteableFolder(config.GetPathUploadFolder())
 	if err != nil {
 		return err
 	}
@@ -77,52 +82,19 @@ func SanitizeFilename(dirtyFilename string) string {
 	return cleanedFilename + extension
 }
 
-func prepareDataFolder() error {
-	info, err := os.Stat(config.GetPathDataFolder())
+func createWriteableFolder(path string) error {
+	info, err := os.Stat(path)
 	if os.IsNotExist(err) {
-		if err := os.Mkdir(config.GetPathDataFolder(), 0755); err != nil {
-			return fmt.Errorf("Could not create folder '%s': %v", config.GetPathDataFolder(), err)
+		if err := os.MkdirAll(path, 0755); err != nil {
+			return fmt.Errorf("Could not create folder '%s': %v", path, err)
 		}
 	} else if err != nil {
-		return fmt.Errorf("Could not access '%s': %v", config.GetPathDataFolder(), err)
+		return fmt.Errorf("Could not access '%s': %v", path, err)
 	} else if !info.IsDir() {
-		return fmt.Errorf("'%s' exists but is not a directory", config.GetPathDataFolder())
+		return fmt.Errorf("'%s' exists but is not a directory", path)
 	}
 
-	pathTestFile := filepath.Join(config.GetPathDataFolder(), ".write_test")
-	err = os.WriteFile(pathTestFile, []byte("test"), 0644)
-	if err != nil {
-		return fmt.Errorf("Could not create test file '%s': %v", pathTestFile, err)
-	}
-
-	err = os.Remove(pathTestFile)
-	if err != nil {
-		return fmt.Errorf("Could not delete test file '%s': %v", pathTestFile, err)
-	}
-
-	return nil
-}
-
-func prepareUploadDir() error {
-	info, err := os.Stat(config.GetPathUploadFolder())
-	if err == nil {
-		if !info.IsDir() {
-			return fmt.Errorf("%s exists, but is not a folder", config.GetPathUploadFolder())
-		}
-
-		err = os.RemoveAll(config.GetPathUploadFolder())
-		if err != nil {
-			return fmt.Errorf("Could not delete upload folder '%s': %v", config.GetPathUploadFolder(), err)
-		}
-	} else if !os.IsNotExist(err) {
-		return fmt.Errorf("'%s' exists but is somewhat broken", config.GetPathUploadFolder())
-	}
-
-	if err := os.MkdirAll(config.GetPathUploadFolder(), 0755); err != nil {
-		return fmt.Errorf("Could not create upload folder '%s': %v", config.GetPathUploadFolder(), err)
-	}
-
-	pathTestFile := filepath.Join(config.GetPathUploadFolder(), ".write_test")
+	pathTestFile := filepath.Join(path, ".write_test")
 	err = os.WriteFile(pathTestFile, []byte("test"), 0644)
 	if err != nil {
 		return fmt.Errorf("Could not create test file '%s': %v", pathTestFile, err)

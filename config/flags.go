@@ -121,19 +121,6 @@ func parseFlagValuePathDataFolder() {
 		return
 	}
 
-	info, err := os.Stat(pathDataFolder)
-	if err != nil {
-		pathDataFolder = defaultPathDataFolder
-		pathUploadFolder = defaultPathUploadFolder
-		return
-	}
-
-	if !info.IsDir() {
-		pathDataFolder = defaultPathDataFolder
-		pathUploadFolder = defaultPathUploadFolder
-		return
-	}
-
 	pathUploadFolder = filepath.Join(pathDataFolder, DefaultNameUploadFolder)
 }
 
