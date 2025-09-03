@@ -19,7 +19,10 @@ func Init() error {
 		return err
 	}
 
-	parseFlags()
+	err = parseFlags()
+	if err != nil {
+		return err
+	}
 
 	if GetReadonlyMode() && GetSinkholeMode() {
 		return fmt.Errorf("Cannot enable both readonly and sinkhole modes at the same time.")

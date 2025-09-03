@@ -73,7 +73,7 @@ func generateRandomPassword() string {
 	return base64.RawURLEncoding.EncodeToString(b)[:LengthOfRandomBasicAuthPassword]
 }
 
-func parseFlags() {
+func parseFlags() error {
 	flag.BoolVar(&basicAuthMode, "auth", false, "Enable basic authentication.")
 	flag.BoolVar(&httpMode, "http", false, "Enable http mode. Nothing will be encrypted.")
 	flag.BoolVar(&readonlyMode, "readonly", false, "Enable readonly mode. No files can be uploaded or deleted.")
@@ -87,10 +87,25 @@ func parseFlags() {
 	flag.Parse()
 
 	parseFlagValueBasicAuthPassword()
-	parseFlagValuePortToListenOn()
+
+	err := parseFlagValuePortToListenOn()
+	if err != nil {
+		return err
+	}
+
 	parseFlagValuePathDataFolder()
-	parseFlagValuePathTLSCertFile()
-	parseFlagValuePathTLSKeyFile()
+
+	err = parseFlagValuePathTLSCertFile()
+	if err != nil {
+		return err
+	}
+
+	err = parseFlagValuePathTLSKeyFile()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func parseFlagValueBasicAuthPassword() {
@@ -122,44 +137,53 @@ func parseFlagValuePathDataFolder() {
 	pathUploadFolder = filepath.Join(pathDataFolder, DefaultNameUploadFolder)
 }
 
-func parseFlagValuePortToListenOn() {
+func parseFlagValuePortToListenOn() error {
 	if portToListenOn < 1 || portToListenOn > 65535 {
-		portToListenOn = DefaultPortToListenOn
+		return fmt.Errorf("The port must be between 1 and 65535 (both ports included).")
 	}
+
+	return nil
 }
 
-func parseFlagValuePathTLSCertFile() {
+func parseFlagValuePathTLSCertFile() error {
 	if pathTLSCertFile == "" {
-		pathTLSKeyFile = ""
-		return
+		if pathTLSKeyFile != "" {
+			return fmt.Errorf("Both a certificate and the corresponding key must be provided.")
+		}
+
+		return nil
 	}
 
 	info, err := os.Stat(pathTLSCertFile)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: Failed to read cert: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("Failed to read cert: %v", err)
 	}
 
 	if info.IsDir() {
 		fmt.Fprintf(os.Stderr, "Error: Cert must be a file\n")
-		os.Exit(1)
+		return fmt.Errorf("Cert must be a valid file.")
 	}
+
+	return nil
 }
 
-func parseFlagValuePathTLSKeyFile() {
+func parseFlagValuePathTLSKeyFile() error {
 	if pathTLSKeyFile == "" {
-		pathTLSCertFile = ""
-		return
+		if pathTLSCertFile != "" {
+			return fmt.Errorf("Both a certificate and the corresponding key must be provided.")
+		}
+
+		return nil
 	}
 
 	info, err := os.Stat(pathTLSKeyFile)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: Failed to read key: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("Failed to read key: %v", err)
 	}
 
 	if info.IsDir() {
-		fmt.Fprintf(os.Stderr, "Error: Key must be a file\n")
-		os.Exit(1)
+		return fmt.Errorf("Key must be a valid file.")
 	}
+
+	return nil
 }
