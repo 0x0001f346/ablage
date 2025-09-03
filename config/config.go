@@ -9,7 +9,7 @@ const DefaultNameDataFolder string = "data"
 const DefaultNameUploadFolder string = ".upload"
 const DefaultPortToListenOn int = 13692
 const LengthOfRandomBasicAuthPassword int = 16
-const VersionString string = "1.1"
+const VersionString string = "1.2"
 
 var randomBasicAuthPassword string = generateRandomPassword()
 
