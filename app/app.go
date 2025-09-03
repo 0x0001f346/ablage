@@ -7,7 +7,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"os"
 
 	"git.0x0001f346.de/andreas/ablage/config"
 	"github.com/julienschmidt/httprouter"
@@ -25,7 +24,7 @@ var assetScriptJS []byte
 //go:embed assets/style.css
 var assetStyleCSS []byte
 
-func Init() {
+func Init() error {
 	router := httprouter.New()
 
 	router.NotFound = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -57,16 +56,14 @@ func Init() {
 		config.PrintStartupBanner()
 		err := http.ListenAndServe(fmt.Sprintf(":%d", config.GetPortToListenOn()), handler)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Ablage exited with error:\n%v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("Webserver exited with error: %v", err)
 		}
-		return
+		return nil
 	}
 
 	tlsCert, err := tls.X509KeyPair(config.GetTLSCertificate(), config.GetTLSKey())
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Faild to parse PEM encoded public/private key pair:\n%v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("Faild to parse PEM encoded public/private key pair: %v", err)
 	}
 
 	server := &http.Server{
@@ -83,9 +80,10 @@ func Init() {
 
 	err = server.ListenAndServeTLS("", "")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Ablage exited with error:\n%v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("Webserver exited with error: %v", err)
 	}
+
+	return nil
 }
 
 func getClientIP(r *http.Request) string {

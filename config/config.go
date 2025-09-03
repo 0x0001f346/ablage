@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"os"
 )
 
 const DefaultBasicAuthUsername string = "ablage"
@@ -14,22 +13,22 @@ const VersionString string = "1.1"
 
 var randomBasicAuthPassword string = generateRandomPassword()
 
-func Init() {
+func Init() error {
 	err := gatherDefaultPaths()
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	parseFlags()
 
 	if GetReadonlyMode() && GetSinkholeMode() {
-		fmt.Println("Error: Cannot enable both readonly and sinkhole modes at the same time.")
-		os.Exit(1)
+		return fmt.Errorf("Cannot enable both readonly and sinkhole modes at the same time.")
 	}
 
 	err = loadOrGenerateTLSCertificate()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		os.Exit(1)
+		return err
 	}
+
+	return nil
 }

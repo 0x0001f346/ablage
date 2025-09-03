@@ -50,13 +50,13 @@ func generateSelfSignedTLSCertificate() error {
 
 	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &privateKey.PublicKey, privateKey)
 	if err != nil {
-		return err
+		return fmt.Errorf("Failed to create new x509 certificate: %v", err)
 	}
 
 	cert := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
 	key, err := x509.MarshalECPrivateKey(privateKey)
 	if err != nil {
-		return err
+		return fmt.Errorf("Failed to marshal EC private key: %v", err)
 	}
 	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: key})
 
@@ -77,17 +77,17 @@ func loadOrGenerateTLSCertificate() error {
 
 	_, err := tls.LoadX509KeyPair(pathTLSCertFile, pathTLSKeyFile)
 	if err != nil {
-		return fmt.Errorf("Error: Failed to load TLS certificate or key: %w", err)
+		return fmt.Errorf("Failed to load TLS certificate or key: %w", err)
 	}
 
 	certData, err := os.ReadFile(pathTLSCertFile)
 	if err != nil {
-		return fmt.Errorf("Error: Failed to read TLS certificate file: %w", err)
+		return fmt.Errorf("Failed to read TLS certificate file: %w", err)
 	}
 
 	keyData, err := os.ReadFile(pathTLSKeyFile)
 	if err != nil {
-		return fmt.Errorf("Error: Failed to read TLS key file: %w", err)
+		return fmt.Errorf("Failed to read TLS key file: %w", err)
 	}
 
 	selfSignedTLSCertificate = certData

@@ -10,18 +10,18 @@ import (
 	"git.0x0001f346.de/andreas/ablage/config"
 )
 
-func Init() {
+func Init() error {
 	err := prepareDataFolder()
 	if err != nil {
-		fmt.Println("err")
-		os.Exit(1)
+		return err
 	}
 
 	err = prepareUploadDir()
 	if err != nil {
-		fmt.Println("err")
-		os.Exit(1)
+		return err
 	}
+
+	return nil
 }
 
 func GetHumanReadableSize(bytes int64) string {
@@ -81,23 +81,23 @@ func prepareDataFolder() error {
 	info, err := os.Stat(config.GetPathDataFolder())
 	if os.IsNotExist(err) {
 		if err := os.Mkdir(config.GetPathDataFolder(), 0755); err != nil {
-			return fmt.Errorf("Error: Could not create folder '%s': %v", config.GetPathDataFolder(), err)
+			return fmt.Errorf("Could not create folder '%s': %v", config.GetPathDataFolder(), err)
 		}
 	} else if err != nil {
-		return fmt.Errorf("Error: Could not access '%s': %v", config.GetPathDataFolder(), err)
+		return fmt.Errorf("Could not access '%s': %v", config.GetPathDataFolder(), err)
 	} else if !info.IsDir() {
-		return fmt.Errorf("Error: '%s' exists but is not a directory", config.GetPathDataFolder())
+		return fmt.Errorf("'%s' exists but is not a directory", config.GetPathDataFolder())
 	}
 
 	pathTestFile := filepath.Join(config.GetPathDataFolder(), ".write_test")
 	err = os.WriteFile(pathTestFile, []byte("test"), 0644)
 	if err != nil {
-		return fmt.Errorf("Error: Could not create test file '%s': %v", pathTestFile, err)
+		return fmt.Errorf("Could not create test file '%s': %v", pathTestFile, err)
 	}
 
 	err = os.Remove(pathTestFile)
 	if err != nil {
-		return fmt.Errorf("Error: Could not delete test file '%s': %v", pathTestFile, err)
+		return fmt.Errorf("Could not delete test file '%s': %v", pathTestFile, err)
 	}
 
 	return nil
@@ -112,25 +112,25 @@ func prepareUploadDir() error {
 
 		err = os.RemoveAll(config.GetPathUploadFolder())
 		if err != nil {
-			return fmt.Errorf("Error: Could not delete upload folder '%s': %v", config.GetPathUploadFolder(), err)
+			return fmt.Errorf("Could not delete upload folder '%s': %v", config.GetPathUploadFolder(), err)
 		}
 	} else if !os.IsNotExist(err) {
-		return fmt.Errorf("Error: '%s' exists but is somewhat broken", config.GetPathUploadFolder())
+		return fmt.Errorf("'%s' exists but is somewhat broken", config.GetPathUploadFolder())
 	}
 
 	if err := os.MkdirAll(config.GetPathUploadFolder(), 0755); err != nil {
-		return fmt.Errorf("Error: Could not create upload folder '%s': %v", config.GetPathUploadFolder(), err)
+		return fmt.Errorf("Could not create upload folder '%s': %v", config.GetPathUploadFolder(), err)
 	}
 
 	pathTestFile := filepath.Join(config.GetPathUploadFolder(), ".write_test")
 	err = os.WriteFile(pathTestFile, []byte("test"), 0644)
 	if err != nil {
-		return fmt.Errorf("Error: Could not create test file '%s': %v", pathTestFile, err)
+		return fmt.Errorf("Could not create test file '%s': %v", pathTestFile, err)
 	}
 
 	err = os.Remove(pathTestFile)
 	if err != nil {
-		return fmt.Errorf("Error: Could not delete test file '%s': %v", pathTestFile, err)
+		return fmt.Errorf("Could not delete test file '%s': %v", pathTestFile, err)
 	}
 
 	return nil
