@@ -82,32 +82,25 @@ func httpGetFiles(w http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 		json.NewEncoder(w).Encode([]FileInfo{})
 	}
 
-	entries, err := os.ReadDir(config.GetPathDataFolder())
+	files, err := filesystem.GetFileListOfDataFolder()
 	if err != nil {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
+		log.Fatalf("[Error] %v", err)
 	}
 
-	files := make([]FileInfo, 0, len(entries))
+	fileInfos := make([]FileInfo, 0, len(files))
 
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-
-		info, err := entry.Info()
-		if err != nil {
-			continue
-		}
-
-		files = append(files, FileInfo{
-			Name: info.Name(),
-			Size: info.Size(),
-		})
+	for filename, sizeInBytes := range files {
+		fileInfos = append(
+			fileInfos,
+			FileInfo{
+				Name: filename,
+				Size: sizeInBytes,
+			},
+		)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(files)
+	json.NewEncoder(w).Encode(fileInfos)
 }
 
 func httpGetFilesDeleteFilename(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
@@ -121,25 +114,10 @@ func httpGetFilesDeleteFilename(w http.ResponseWriter, r *http.Request, ps httpr
 		return
 	}
 
-	entries, err := os.ReadDir(config.GetPathDataFolder())
-	if err != nil {
-		http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-
-	files := map[string]int64{}
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		info, err := entry.Info()
-		if err != nil {
-			continue
-		}
-		files[info.Name()] = info.Size()
-	}
-
 	filename := ps.ByName("filename")
+
+	files, err := filesystem.GetFileListOfDataFolder()
+
 	sizeInBytes, fileExists := files[filename]
 	if !fileExists {
 		w.Header().Set("Content-Type", "application/json")
@@ -147,8 +125,7 @@ func httpGetFilesDeleteFilename(w http.ResponseWriter, r *http.Request, ps httpr
 		return
 	}
 
-	fullPath := filepath.Join(config.GetPathDataFolder(), filename)
-	err = os.Remove(fullPath)
+	err = filesystem.DeleteFile(filename)
 	if err != nil {
 		http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
 		return
@@ -167,15 +144,19 @@ func httpGetFilesGetFilename(w http.ResponseWriter, r *http.Request, ps httprout
 	}
 
 	filename := ps.ByName("filename")
-	filePath := filepath.Join(config.GetPathDataFolder(), filename)
 
-	info, err := os.Stat(filePath)
-	if err != nil || info.IsDir() {
+	files, err := filesystem.GetFileListOfDataFolder()
+	if err != nil {
+		log.Fatalf("[Error] %v", err)
+	}
+
+	sizeInBytes, fileExists := files[filename]
+	if !fileExists {
 		http.Error(w, "404 File Not Found", http.StatusNotFound)
 		return
 	}
 
-	log.Printf("| Download | %-21s | %-10s | %s\n", getClientIP(r), filesystem.GetHumanReadableSize(info.Size()), filename)
+	log.Printf("| Download | %-21s | %-10s | %s\n", getClientIP(r), filesystem.GetHumanReadableSize(sizeInBytes), filename)
 
 	extension := strings.ToLower(filepath.Ext(filename))
 	mimeType := mime.TypeByExtension(extension)
@@ -190,7 +171,7 @@ func httpGetFilesGetFilename(w http.ResponseWriter, r *http.Request, ps httprout
 		w.Header().Set("Content-Disposition", "attachment; filename=\""+filename+"\"")
 	}
 
-	http.ServeFile(w, r, filePath)
+	http.ServeFile(w, r, filepath.Join(config.GetPathDataFolder(), filename))
 }
 
 func httpGetRoot(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
@@ -212,6 +193,11 @@ func httpPostUpload(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 	if config.GetReadonlyMode() {
 		http.Error(w, "403 Forbidden", http.StatusForbidden)
 		return
+	}
+
+	_, err := filesystem.GetFileListOfDataFolder()
+	if err != nil {
+		log.Fatalf("[Error] %v", err)
 	}
 
 	reader, err := r.MultipartReader()
